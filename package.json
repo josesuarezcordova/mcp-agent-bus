@@ -1,0 +1,47 @@
+{
+  "name": "mcp-agent-bus",
+  "version": "1.0.0",
+  "description": "A local, event-driven MCP message bus for coordinating multiple AI coding-agent sessions on the same machine.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "cursor",
+    "coding-agents",
+    "message-bus",
+    "orchestration"
+  ],
+  "bin": {
+    "mcp-agent-bus": "src/server.mjs",
+    "mcp-agent-bus-worker": "src/worker.mjs"
+  },
+  "exports": {
+    ".": "./src/mailbox.mjs"
+  },
+  "files": [
+    "src",
+    "examples",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node src/server.mjs",
+    "worker": "node src/worker.mjs",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0"
+  }
+}

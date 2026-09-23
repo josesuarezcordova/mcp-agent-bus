@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.DS_Store
+
+# Local bus mailbox (runtime data)
+bus/
+.cursor/mcp.json
+
+# Editor/OS
+.idea/
+.vscode/
+*.swp

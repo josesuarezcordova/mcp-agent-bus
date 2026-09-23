@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mcp-agent-bus": {
+      "command": "node",
+      "args": ["<ABSOLUTE_PATH_TO_REPO>/src/server.mjs"],
+      "env": {
+        "MCP_AGENT_BUS_DIR": "<ABSOLUTE_PATH_TO_REPO>/bus"
+      }
+    }
+  }
+}

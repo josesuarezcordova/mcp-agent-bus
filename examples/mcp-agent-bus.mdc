@@ -1,0 +1,66 @@
+---
+description: Inter-session messaging over the local mcp-agent-bus MCP. Any session can send a prompt to another session, which runs it and replies to the sender.
+alwaysApply: true
+---
+
+# MCP Agent Bus — inter-session coordination
+
+This project uses a local, event-driven message bus (the `mcp-agent-bus` MCP
+server). Sessions talk to each other through it: any session can send a prompt
+to another session, which runs it and replies to the sender.
+
+## Your session identity
+- Your session name comes from the `AGENT_SESSION_NAME` environment variable.
+  Run `echo "$AGENT_SESSION_NAME"` once at the start of a session to read it.
+- If `AGENT_SESSION_NAME` is empty, ask the user once: "What should this
+  session be called on the agent bus?" Use a short lowercase handle
+  (e.g. `backend`, `frontend`, `reviewer`). Remember it for the whole session.
+- Never guess or reuse another session's name.
+
+## Two ways to receive work
+
+### A. On-demand (interactive session)
+An interactive agent session cannot reliably auto-wake from background output,
+so it receives work only when it is active. To pick up messages, call
+`bus_receive(me="<yourname>", block=true, timeout_ms=45000)` (keep the timeout
+under ~50s; MCP clients may abort longer blocking calls). Then run each
+message's `text` as a task and reply via `bus_send`. Re-run `bus_receive` to
+keep waiting.
+
+### B. Autonomous (headless worker) — recommended for a standing worker
+For hands-free processing, run the headless worker in a plain terminal pane
+(not inside an agent session):
+
+```
+MCP_AGENT_BUS_DIR="$PWD/bus" \
+WORKER_CWD="$PWD" \
+node src/worker.mjs <yourname> --model <your-model>
+```
+
+It blocks on the inbox, runs each incoming task with `cursor-agent -p`
+(headless), and replies to the sender automatically.
+
+## Handling a received task (either mode)
+1. Parse the message. Fields: `from`, `to`, `subject`, `text`, `id`, `ts`.
+2. Treat `text` as a task/prompt from the `from` session; do it with normal tools.
+3. Reply: `bus_send(to=<message.from>, from="<yourname>", subject="re: <subject>", text=<concise result>)`.
+
+## Sending / coordinating (bus_* MCP tools)
+- `bus_send(to, from, text, subject?)` — send a task/message to another session.
+- `bus_receive(me, block?, timeout_ms?)` — fetch + consume your messages
+  (blocks until one arrives when `block=true`).
+- `bus_broadcast(from, text)` / `bus_read_broadcasts(me)` — global announcements.
+- `bus_peek(me)` — look at your inbox without consuming.
+- `bus_list_sessions()` — see which sessions have inboxes.
+
+Always set `from`/`me` to your own session name.
+
+## Guardrails
+- Only ONE receiver per session name (headless worker OR interactive receive —
+  never both draining the same inbox).
+- A headless worker runs tasks with `cursor-agent -p ... --force` (auto-approves
+  shell/write). Only run it for trusted senders. Keep replies concise and avoid
+  destructive actions (deletes, force-push, production changes) unless explicit
+  and clearly safe; otherwise reply asking for confirmation.
+- To stop a headless worker: Ctrl-C its terminal (or kill the `worker.mjs` PID).
+- Disable this behavior entirely by removing this rule file.
