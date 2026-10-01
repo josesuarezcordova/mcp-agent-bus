@@ -37,42 +37,139 @@ Everything is local. The "post office" is just a folder of JSON files:
 
 ## Requirements
 
-- **Node.js >= 18**
-- An MCP-capable agent client (e.g. Cursor / `cursor-agent`).
+- **Node.js >= 18** (`node -v`)
+- **[Cursor](https://cursor.com)** (or another MCP-capable client) with MCP enabled
+- **Optional — headless worker only:** [Cursor CLI](https://cursor.com/docs/cli) (`cursor-agent` on your `PATH`)
 
-## Install
+All sessions that should talk to each other must use the **same** `MCP_AGENT_BUS_DIR` (same mailbox folder on disk).
+
+---
+
+## Quick start (Cursor, ~5 minutes)
+
+### 1. Clone and install
 
 ```bash
-git clone <this-repo> mcp-agent-bus
+git clone https://github.com/josesuarezcordova/mcp-agent-bus.git
 cd mcp-agent-bus
 ./scripts/setup.sh
 ```
 
-`setup.sh` installs dependencies, writes a project-local `.cursor/mcp.json`
-pointing at this checkout, and installs the always-on rule. Then reload your
-agent client.
+`setup.sh` runs `npm install`, creates a local `bus/` mailbox under this repo, writes **project-local** `.cursor/mcp.json`, and copies the always-on rule to `.cursor/rules/mcp-agent-bus.mdc`.
 
-### Manual install
+Check the server starts (optional):
 
 ```bash
-npm install
+npm test
 ```
 
-Then register the server with your MCP client using
-[`examples/mcp.json.template`](examples/mcp.json.template) (replace
-`<ABSOLUTE_PATH_TO_REPO>` with this checkout's path):
+### 2. Reload Cursor
+
+1. Open **this folder** (`mcp-agent-bus`) in Cursor, **or** complete [Use with your own project](#use-with-your-own-project) below if you work in another repo.
+2. **Cursor Settings → MCP** — confirm `mcp-agent-bus` appears (green / enabled).
+3. If you do not see it: **Command Palette → “Developer: Reload Window”**, then check MCP again.
+
+### 3. Give each session a name
+
+Every Cursor window is one “session”. Pick a short handle per window, e.g. `backend` and `reviewer`.
+
+Tell the agent once per window, for example:
+
+> “On the agent bus, my session name is **backend**. Use that for `from` / `me` on bus tools.”
+
+The rule in `.cursor/rules/mcp-agent-bus.mdc` reminds the agent to ask if the name is not set.
+
+**Important:** use **different names** in each window. Do not run a headless worker and interactive `bus_receive` on the **same** name (they share one inbox).
+
+### 4. Smoke test (two windows)
+
+Use the **same workspace** (same `.cursor/mcp.json` and same `MCP_AGENT_BUS_DIR`) in both windows.
+
+| Window | Session name | Example prompt |
+|--------|----------------|----------------|
+| A | `sender` | “Call `bus_send` to **reviewer** from **sender** with text `hello from sender`.” |
+| B | `reviewer` | “Call `bus_receive` with `me=reviewer`, `block=true`, `timeout_ms=30000` and show the result.” |
+
+Window B should return the JSON message. Then B can reply with `bus_send(to="sender", from="reviewer", ...)`.
+
+Quick check in either window: **`bus_list_sessions()`** — after traffic, you should see inbox folders for active names.
+
+### 5. Optional — autonomous worker (terminal)
+
+For a session that runs tasks without you in the loop, in a **plain terminal** (not inside the agent):
+
+```bash
+cd /path/to/mcp-agent-bus   # or your project with WORKER_CWD set
+MCP_AGENT_BUS_DIR="/path/to/mcp-agent-bus/bus" \
+WORKER_CWD="/path/to/your/project" \
+node src/worker.mjs reviewer --model <your-model>
+```
+
+Requires `cursor-agent` installed and logged in. The worker runs prompts with `--force` (auto-approves tool actions) — only accept tasks from senders you trust.
+
+---
+
+## Use with your own project
+
+Most people keep coding in **their app repo**, not inside `mcp-agent-bus`. Point MCP at the cloned server and use one **shared mailbox path** everywhere.
+
+1. Clone `mcp-agent-bus` once, e.g. `~/tools/mcp-agent-bus`, and run `npm install` there.
+2. In **your project**, merge into `.cursor/mcp.json` (keep your existing servers):
 
 ```json
 {
   "mcpServers": {
     "mcp-agent-bus": {
       "command": "node",
-      "args": ["<ABSOLUTE_PATH_TO_REPO>/src/server.mjs"],
-      "env": { "MCP_AGENT_BUS_DIR": "<ABSOLUTE_PATH_TO_REPO>/bus" }
+      "args": ["/ABSOLUTE/PATH/TO/mcp-agent-bus/src/server.mjs"],
+      "env": {
+        "MCP_AGENT_BUS_DIR": "/ABSOLUTE/PATH/TO/mcp-agent-bus/bus"
+      }
     }
   }
 }
 ```
+
+Use **absolute paths**. Every window that should share the bus must use the **same** `MCP_AGENT_BUS_DIR`.
+
+3. Copy the rule into your project:
+
+```bash
+cp /ABSOLUTE/PATH/TO/mcp-agent-bus/examples/mcp-agent-bus.mdc \
+   /ABSOLUTE/PATH/TO/your-project/.cursor/rules/
+```
+
+4. Reload Cursor and run the [smoke test](#4-smoke-test-two-windows) with two windows on **your project** folder.
+
+### Global MCP (all projects)
+
+Alternatively, put the same `mcpServers.mcp-agent-bus` block in **`~/.cursor/mcp.json`** and copy `mcp-agent-bus.mdc` to a location Cursor loads globally (or paste the rule into your user rules). Same rule applies: one shared `MCP_AGENT_BUS_DIR` for all participating sessions.
+
+---
+
+## Manual install (no setup script)
+
+```bash
+git clone https://github.com/josesuarezcordova/mcp-agent-bus.git
+cd mcp-agent-bus
+npm install
+```
+
+Register the server using [`examples/mcp.json.template`](examples/mcp.json.template) (replace `<ABSOLUTE_PATH_TO_REPO>` with your checkout path), then reload your MCP client.
+
+---
+
+## Troubleshooting
+
+| Problem | What to try |
+|--------|-------------|
+| MCP server missing in Cursor | Reload window; check `.cursor/mcp.json` syntax; paths must be absolute. |
+| Messages never arrive | Both windows must share the **same** `MCP_AGENT_BUS_DIR`; confirm with the same path in each `mcp.json`. |
+| `bus_receive` times out empty | Wrong session name (`me` / `to` typo); sender used a different mailbox dir. |
+| Worker does nothing | Install CLI: `cursor-agent`; set `MCP_AGENT_BUS_DIR` and `WORKER_CWD`; do not use the same name in Cursor and worker. |
+| Permission errors on `bus/` | Ensure the mailbox directory exists and is writable (`setup.sh` creates `bus/`). |
+
+Run **`npm test`** in the clone to verify the mailbox logic on your machine (no Cursor required).
 
 ## Tools
 
