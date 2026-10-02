@@ -1,6 +1,6 @@
 {
   "name": "mcp-agent-bus",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A local, event-driven MCP message bus for coordinating multiple AI coding-agent sessions on the same machine.",
   "type": "module",
   "license": "MIT",

@@ -10,6 +10,19 @@ the local filesystem.
 > coding-agent sessions, shared openly so other teams can adopt the same
 > pattern.
 
+## Releases
+
+This project is **distributed via GitHub only** (no hosted service). Install = clone + `npm install` + MCP setup — see [Quick start](#quick-start-cursor-5-minutes).
+
+| Version | Highlights |
+|---------|------------|
+| **[v1.1.0](https://github.com/josesuarezcordova/mcp-agent-bus/releases/tag/v1.1.0)** (latest) | Monitoring dashboards (`docs/watch-*.sh`) + worker token/clarity metrics |
+| **[v1.0.0](https://github.com/josesuarezcordova/mcp-agent-bus/releases/tag/v1.0.0)** | First public release — MCP bus + Quick start |
+
+Full history: [CHANGELOG.md](CHANGELOG.md) · [All releases](https://github.com/josesuarezcordova/mcp-agent-bus/releases)
+
+**Upgrade v1.0.0 → v1.1.0:** `git pull` (or re-clone), `npm install` unchanged. New optional scripts under `docs/`; worker upgrade only affects you if you use the headless worker.
+
 ## Why
 
 When you work with AI coding agents you often have several sessions open at
