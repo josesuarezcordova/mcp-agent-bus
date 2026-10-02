@@ -213,6 +213,27 @@ MCP_AGENT_BUS_DIR="$PWD/bus" WORKER_CWD="$PWD" \
 > (auto-approves shell/file actions). Only run it for senders you trust.
 > The agent command is configurable via the `AGENT_CMD` env var.
 
+## Monitoring workers (optional)
+
+When the headless worker runs with `cursor-agent --output-format stream-json`, it appends per-task metrics under **`$MCP_AGENT_BUS_DIR/run/`** (default: `<repo>/bus/run/`):
+
+| Script | What it shows |
+|--------|----------------|
+| [`docs/watch-usage.sh`](docs/watch-usage.sh) | Live **token** dashboard (input/output/cache, per worker + total) |
+| [`docs/watch-clarity.sh`](docs/watch-clarity.sh) | **Prompt quality** (TTFT, hedging %, interpretation overhead) |
+| [`docs/watch-workers.sh`](docs/watch-workers.sh) | Multiplexed **logs** for all workers (macOS-compatible) |
+
+```bash
+cd /path/to/mcp-agent-bus
+./docs/watch-usage.sh
+./docs/watch-clarity.sh
+./docs/watch-workers.sh
+```
+
+Optional offline LLM judge for clarity scores: `AGENT_BUS_HOME="$PWD" node docs/prompt-clarity.mjs`
+
+These dashboards are the same tooling used in the internal [therapietech/agent-bus](https://github.com/therapietech/agent-bus) repo (Therapie); paths accept both `MCP_AGENT_BUS_DIR` and `AGENT_BUS_DIR`.
+
 ## Configuration
 
 | Env var | Default | Meaning |

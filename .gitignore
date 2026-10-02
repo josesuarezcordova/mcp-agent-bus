@@ -4,6 +4,10 @@ node_modules/
 
 # Local bus mailbox (runtime data)
 bus/
+**/run/*.log
+**/run/*.jsonl
+**/run/*.pid
+**/run/clarity/
 .cursor/mcp.json
 
 # Editor/OS
