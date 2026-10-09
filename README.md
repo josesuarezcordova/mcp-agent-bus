@@ -120,6 +120,14 @@ node src/worker.mjs reviewer --model <your-model>
 
 Requires `cursor-agent` installed and logged in. The worker runs prompts with `--force` (auto-approves tool actions) — only accept tasks from senders you trust.
 
+**Optional — Teams push on your phone:** set `TEAMS_WEBHOOK_URL` to a Microsoft Teams **Workflow** incoming webhook. The worker posts an Adaptive Card when a task **finishes**, **fails**, or trips the **runaway guard**. Full setup (channel choice, env vars, smoke test, troubleshooting): **[docs/teams-notify.md](docs/teams-notify.md)**.
+
+```bash
+export TEAMS_WEBHOOK_URL='https://...'   # never commit this URL
+node src/worker.mjs wkr-01 --model <your-model>
+# startup line: [worker] Teams notify: ON (events: done,fail,alarm)
+```
+
 ---
 
 ## Use with your own project
@@ -180,6 +188,7 @@ Register the server using [`examples/mcp.json.template`](examples/mcp.json.templ
 | Messages never arrive | Both windows must share the **same** `MCP_AGENT_BUS_DIR`; confirm with the same path in each `mcp.json`. |
 | `bus_receive` times out empty | Wrong session name (`me` / `to` typo); sender used a different mailbox dir. |
 | Worker does nothing | Install CLI: `cursor-agent`; set `MCP_AGENT_BUS_DIR` and `WORKER_CWD`; do not use the same name in Cursor and worker. |
+| Teams cards never arrive | Follow [docs/teams-notify.md](docs/teams-notify.md): Standard channel, “post to channel” workflow, `TEAMS_WEBHOOK_URL` in the **same** shell as the worker; check stderr for `Teams notify failed`. |
 | Permission errors on `bus/` | Ensure the mailbox directory exists and is writable (`setup.sh` creates `bus/`). |
 
 Run **`npm test`** in the clone to verify the mailbox logic on your machine (no Cursor required).
@@ -255,6 +264,10 @@ These dashboards are the same tooling used in the internal [therapietech/agent-b
 | `AGENT_SESSION_NAME` | — | Convenience: each session's own name. |
 | `WORKER_CWD` | current dir | Working directory the worker runs tasks in. |
 | `AGENT_CMD` | `cursor-agent` | The agent CLI the worker invokes. |
+| `TEAMS_WEBHOOK_URL` | — | Teams Workflows webhook URL; enables worker push notifications. |
+| `TEAMS_NOTIFY_EVENTS` | `done,fail,alarm` | Which worker events post to Teams. |
+
+See [docs/teams-notify.md](docs/teams-notify.md) for worker-only Teams setup.
 
 ## Development
 
