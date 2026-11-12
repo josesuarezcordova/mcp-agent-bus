@@ -58,9 +58,11 @@ Always set `from`/`me` to your own session name.
 ## Guardrails
 - Only ONE receiver per session name (headless worker OR interactive receive —
   never both draining the same inbox).
-- A headless worker runs tasks with `cursor-agent -p ... --force` (auto-approves
-  shell/write). Only run it for trusted senders. Keep replies concise and avoid
-  destructive actions (deletes, force-push, production changes) unless explicit
-  and clearly safe; otherwise reply asking for confirmation.
+- A headless worker runs `cursor-agent -p` with **`WORKER_FORCE` off by default**
+  (set `WORKER_FORCE=1` only for trusted hubs; requires `ALLOWED_SENDERS`; inherits
+  global `~/.cursor/mcp.json`, not just the bus). Only run it for trusted senders.
+  Keep replies concise and avoid destructive actions (deletes, force-push,
+  production changes) unless explicit and clearly safe; otherwise reply asking
+  for confirmation.
 - To stop a headless worker: Ctrl-C its terminal (or kill the `worker.mjs` PID).
 - Disable this behavior entirely by removing this rule file.

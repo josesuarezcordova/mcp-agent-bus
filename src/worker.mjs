@@ -17,9 +17,9 @@
 //                     If unset, all senders are accepted (a warning is logged).
 //   WORKER_MAX_RE_DEPTH  max `re:` depth on a subject before the worker refuses
 //                        (loop guard). Default 6.
-//   WORKER_FORCE      "1" (default) runs cursor-agent with --force (auto-approve
-//                     tool calls). Set "0" to drop --force (safer, but tasks that
-//                     need tools may stall waiting for approval).
+//   WORKER_FORCE      "1" (opt-in) runs cursor-agent with --force (auto-approve
+//                     tool calls). Default off. With force on, ALLOWED_SENDERS must
+//                     be set (worker refuses to start otherwise).
 //   WORKER_STREAM     "1" (default) streams the agent's live output into this
 //                     pane while a task runs, plus an elapsed-time heartbeat.
 //                     Set "0" for quiet mode (only task-start/replied lines).
@@ -116,8 +116,16 @@ const ALLOWED = (process.env.ALLOWED_SENDERS || '')
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 const MAX_RE_DEPTH = parseInt(process.env.WORKER_MAX_RE_DEPTH || '6', 10);
-const FORCE = process.env.WORKER_FORCE !== '0';
+const FORCE = process.env.WORKER_FORCE === '1';
 const STREAM = process.env.WORKER_STREAM !== '0';
+
+if (FORCE && !ALLOWED.length) {
+  console.error(
+    '[worker] REFUSING TO START: WORKER_FORCE=1 requires ALLOWED_SENDERS (comma-separated hub name, e.g. hub).\n' +
+      '         Without a sender allow-list, auto-approve is too risky (global MCP + shell).',
+  );
+  process.exit(1);
+}
 
 // --- loop / runaway detection ---
 // cursor-agent's stream-json DOES report token usage (see the `result` event in
@@ -620,6 +628,12 @@ async function schedule() {
   busy = false;
 }
 
+console.error(
+  '[worker] ⚠ MCP / tools: each headless task runs cursor-agent with access to your ' +
+    'global ~/.cursor/mcp.json (cloud storage, GitHub, Jira, email, etc.) plus shell. ' +
+    'The safety preamble is not a tool block. Prefer WORKER_FORCE=0, ALLOWED_SENDERS, ' +
+    'and a minimal MCP profile on machines that run workers on company data.',
+);
 console.error(`[worker] "${me}" ready. model=${MODEL || 'default'} cwd=${REPO_DIR} agent=${AGENT_CMD}`);
 console.error(`[worker] metrics: ${RUN_DIR}/*.usage.jsonl (watch-usage.sh / watch-clarity.sh)`);
 console.error(`[worker] safety: allowed_senders=${ALLOWED.length ? ALLOWED.join(',') : 'ALL (⚠ set ALLOWED_SENDERS to lock down)'} | force=${FORCE ? 'on' : 'off'} | max_re_depth=${MAX_RE_DEPTH} | stream=${STREAM ? 'on' : 'off'}`);

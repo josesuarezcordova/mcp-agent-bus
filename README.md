@@ -118,7 +118,9 @@ WORKER_CWD="/path/to/your/project" \
 node src/worker.mjs reviewer --model <your-model>
 ```
 
-Requires `cursor-agent` installed and logged in. The worker runs prompts with `--force` (auto-approves tool actions) — only accept tasks from senders you trust.
+Requires `cursor-agent` installed and logged in. **By default the worker does not pass `--force`** (`WORKER_FORCE=0`). With `WORKER_FORCE=1`, tool calls auto-approve — only use for senders you trust, and **you must set `ALLOWED_SENDERS`** or the worker refuses to start.
+
+> **Company data:** `cursor-agent` inherits your **global `~/.cursor/mcp.json`**, not just the bus — cloud storage, GitHub, Jira, email, etc. The safety preamble does not block tools. Use force only with a minimal MCP profile and an allow-listed hub.
 
 **Optional — Teams push on your phone:** set `TEAMS_WEBHOOK_URL` to a Microsoft Teams **Workflow** incoming webhook. The worker posts an Adaptive Card when a task **finishes**, **fails**, or trips the **runaway guard**. Full setup (channel choice, env vars, smoke test, troubleshooting): **[docs/teams-notify.md](docs/teams-notify.md)**.
 
@@ -231,8 +233,10 @@ MCP_AGENT_BUS_DIR="$PWD/bus" WORKER_CWD="$PWD" \
   node src/worker.mjs backend --model <your-model>
 ```
 
-> **Safety:** the worker runs tasks with `cursor-agent -p ... --force`
-> (auto-approves shell/file actions). Only run it for senders you trust.
+> **Safety:** the worker runs `cursor-agent -p` with **`WORKER_FORCE` off by default**
+> (set `WORKER_FORCE=1` to add `--force`). Force requires **`ALLOWED_SENDERS`**.
+> The headless CLI still loads **global MCP servers** — see the warning in
+> [Optional — autonomous worker](#5-optional--autonomous-worker-terminal).
 > The agent command is configurable via the `AGENT_CMD` env var.
 
 ## Monitoring workers (optional)
