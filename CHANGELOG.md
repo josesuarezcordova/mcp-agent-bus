@@ -7,6 +7,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **`WORKER_MAX_LIFETIME_MS`** (default 24h) — headless worker exits cleanly when idle after a wall-clock cap; set `0` for no limit.
 - **Microsoft Teams notifications** for the headless worker (`TEAMS_WEBHOOK_URL`, `TEAMS_NOTIFY_EVENTS`).
 - **`docs/teams-notify.md`** — step-by-step Teams Workflows setup, smoke test, and troubleshooting.
 
