@@ -7,7 +7,6 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- **`WORKER_MAX_LIFETIME_MS`** (default 24h) — headless worker exits cleanly when idle after a wall-clock cap; set `0` for no limit.
 - **Microsoft Teams notifications** for the headless worker (`TEAMS_WEBHOOK_URL`, `TEAMS_NOTIFY_EVENTS`).
 - **`docs/teams-notify.md`** — step-by-step Teams Workflows setup, smoke test, and troubleshooting.
 
@@ -15,6 +14,16 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **`src/worker.mjs`** — posts Adaptive Cards on task done/fail and runaway `alarm` (best-effort; no secret in repo).
 - **Worker safety (Eirik feedback):** `WORKER_FORCE` is **off by default** (explicit `1` for `--force`). Refuse to start if `WORKER_FORCE=1` without `ALLOWED_SENDERS`. Startup warning about **global MCP** inheritance (`~/.cursor/mcp.json`). README + rules updated.
+
+## [1.2.0] - 2026-11-18
+
+### Added
+
+- **`WORKER_MAX_LIFETIME_MS`** (default 24h) — headless worker exits cleanly when idle after a wall-clock cap; set `0` for no limit ([#4](https://github.com/josesuarezcordova/mcp-agent-bus/pull/4)).
+
+### Changed
+
+- **`README.md`**, **`examples/mcp-agent-bus.mdc`** — document wall-clock worker cap.
 
 ## [1.1.0] - 2026-10-02
 
@@ -39,5 +48,6 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Initial public release: MCP server, mailbox core, setup script, Quick start README.
 - Cross-region referrer-style mailbox behaviour documented for MCP consumers.
 
+[1.2.0]: https://github.com/josesuarezcordova/mcp-agent-bus/releases/tag/v1.2.0
 [1.1.0]: https://github.com/josesuarezcordova/mcp-agent-bus/releases/tag/v1.1.0
 [1.0.0]: https://github.com/josesuarezcordova/mcp-agent-bus/releases/tag/v1.0.0
