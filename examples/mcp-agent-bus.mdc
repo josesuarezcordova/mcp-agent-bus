@@ -58,6 +58,8 @@ Always set `from`/`me` to your own session name.
 ## Guardrails
 - Only ONE receiver per session name (headless worker OR interactive receive —
   never both draining the same inbox).
+- **`WORKER_MAX_LIFETIME_MS`** (default 24h) caps wall-clock worker runtime; set `0`
+  for no limit. Process exits when idle after the cap (in-flight task finishes first).
 - A headless worker runs `cursor-agent -p` with **`WORKER_FORCE` off by default**
   (set `WORKER_FORCE=1` only for trusted hubs; requires `ALLOWED_SENDERS`; inherits
   global `~/.cursor/mcp.json`, not just the bus). Only run it for trusted senders.

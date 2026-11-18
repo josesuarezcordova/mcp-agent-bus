@@ -270,6 +270,7 @@ These dashboards are the same tooling used in the internal [therapietech/agent-b
 | `AGENT_CMD` | `cursor-agent` | The agent CLI the worker invokes. |
 | `TEAMS_WEBHOOK_URL` | — | Teams Workflows webhook URL; enables worker push notifications. |
 | `TEAMS_NOTIFY_EVENTS` | `done,fail,alarm` | Which worker events post to Teams. |
+| `WORKER_MAX_LIFETIME_MS` | `86400000` (24h) | Wall-clock cap on the worker process; `0` = no limit. Exits when idle after the cap (in-flight task finishes first). |
 
 See [docs/teams-notify.md](docs/teams-notify.md) for worker-only Teams setup.
 

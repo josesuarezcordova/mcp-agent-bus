@@ -23,6 +23,9 @@
 //   WORKER_STREAM     "1" (default) streams the agent's live output into this
 //                     pane while a task runs, plus an elapsed-time heartbeat.
 //                     Set "0" for quiet mode (only task-start/replied lines).
+//   WORKER_MAX_LIFETIME_MS  max wall-clock time this process may run (0 = no
+//                     limit). Default 86400000 (24h). Exits cleanly when idle
+//                     after the limit; finishes an in-flight task first.
 // Every task is also prefixed with a hard safety policy (no external side
 // effects / GUI automation unless the task explicitly authorises it).
 // Ctrl-C to stop.
@@ -137,6 +140,27 @@ const BURST_MAX = parseInt(process.env.WORKER_BURST_MAX || '10', 10); // >N task
 const REPEAT_MAX = parseInt(process.env.WORKER_REPEAT_MAX || '4', 10); // same task >N/window = alarm
 const MAX_TASKS = parseInt(process.env.WORKER_MAX_TASKS || '0', 10); // lifetime task budget (0=off)
 const TASK_TIMEOUT_MS = parseInt(process.env.WORKER_TASK_TIMEOUT_MS || '0', 10); // kill a task after N ms (0=off)
+const DEFAULT_MAX_LIFETIME_MS = 24 * 60 * 60 * 1000;
+const MAX_LIFETIME_MS = (() => {
+  const raw = process.env.WORKER_MAX_LIFETIME_MS;
+  if (raw === undefined || raw === '') return DEFAULT_MAX_LIFETIME_MS;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_MAX_LIFETIME_MS;
+})();
+const workerStartedAt = Date.now();
+
+function lifetimeExpired() {
+  return MAX_LIFETIME_MS > 0 && Date.now() - workerStartedAt >= MAX_LIFETIME_MS;
+}
+
+function maybeExitForLifetime(reason) {
+  if (!lifetimeExpired() || busy) return false;
+  const hrs = Math.round(MAX_LIFETIME_MS / 3600000);
+  console.error(
+    `[worker] max lifetime reached (${hrs}h wall clock, ${reason}); exiting so idle workers do not linger.`,
+  );
+  process.exit(0);
+}
 // where to send the alarm (defaults to first allow-listed sender, else "hub")
 const ALERT_TO = (process.env.WORKER_ALERT_TO || ALLOWED[0] || 'hub').toLowerCase();
 // on trip: stop the worker to stop the bleed (set "0" to only warn + skip task)
@@ -616,6 +640,7 @@ async function drainAndProcess() {
 let busy = false;
 let pending = false;
 async function schedule() {
+  if (maybeExitForLifetime('schedule')) return;
   if (busy) {
     pending = true;
     return;
@@ -639,6 +664,9 @@ console.error(`[worker] metrics: ${RUN_DIR}/*.usage.jsonl (watch-usage.sh / watc
 console.error(`[worker] safety: allowed_senders=${ALLOWED.length ? ALLOWED.join(',') : 'ALL (⚠ set ALLOWED_SENDERS to lock down)'} | force=${FORCE ? 'on' : 'off'} | max_re_depth=${MAX_RE_DEPTH} | stream=${STREAM ? 'on' : 'off'}`);
 console.error(`[worker] runaway guard: burst>${BURST_MAX}/${Math.round(BURST_WINDOW_MS / 1000)}s, repeat>${REPEAT_MAX}/${Math.round(BURST_WINDOW_MS / 1000)}s, max_tasks=${MAX_TASKS || '∞'}, task_timeout=${TASK_TIMEOUT_MS ? Math.round(TASK_TIMEOUT_MS / 1000) + 's' : 'off'} | alarm→${ALERT_TO} | breaker=${BREAKER ? 'ON (stops worker)' : 'off (skip+warn)'}`);
 console.error(
+  `[worker] max_lifetime=${MAX_LIFETIME_MS ? Math.round(MAX_LIFETIME_MS / 3600000) + 'h' : 'off (WORKER_MAX_LIFETIME_MS=0)'}`,
+);
+console.error(
   `[worker] Teams notify: ${TEAMS_WEBHOOK_URL ? `ON (events: ${TEAMS_NOTIFY_EVENTS.join(',')})` : 'off — see docs/teams-notify.md'}`,
 );
 console.error(`[worker] watching ${inbox}`);
@@ -650,3 +678,6 @@ try {
   console.error('[worker] fs.watch failed, polling only:', e.message);
 }
 setInterval(() => schedule(), 3000); // safety-net poll
+if (MAX_LIFETIME_MS > 0) {
+  setInterval(() => maybeExitForLifetime('lifetime poll'), 5 * 60 * 1000);
+}
