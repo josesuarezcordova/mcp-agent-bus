@@ -14,7 +14,8 @@
 # There are NO cost/$ columns anywhere — this is about prompt quality, not spend.
 #
 # Usage:
-#   ./docs/watch-clarity.sh                       # live, group by sender
+#   ./docs/watch-clarity.sh                       # live, group by sender (active workers only)
+#   ./docs/watch-clarity.sh --all                 # include tasks from stopped workers
 #   ./docs/watch-clarity.sh --once                # one snapshot, then exit
 #   ./docs/watch-clarity.sh --group-by template   # from|ticket|template|worker
 #   ./docs/watch-clarity.sh --interval 5
@@ -30,9 +31,11 @@ RUN_DIR="${AGENT_BUS_RUN_DIR:-${MCP_AGENT_BUS_RUN_DIR:-$BUS_ROOT/run}}"
 ONCE=0
 INTERVAL=2
 GROUP_BY=from
+SHOW_ALL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --once) ONCE=1 ;;
+    --all) SHOW_ALL=1 ;;
     --interval) shift; INTERVAL="${1:-2}" ;;
     --group-by) shift; GROUP_BY="${1:-from}" ;;
     -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
@@ -42,13 +45,27 @@ done
 
 mkdir -p "$RUN_DIR"
 
-RUN_DIR="$RUN_DIR" ONCE="$ONCE" INTERVAL="$INTERVAL" GROUP_BY="$GROUP_BY" exec node -e '
+RUN_DIR="$RUN_DIR" ONCE="$ONCE" INTERVAL="$INTERVAL" GROUP_BY="$GROUP_BY" SHOW_ALL="$SHOW_ALL" exec node -e '
+const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const RUN_DIR = process.env.RUN_DIR;
 const ONCE = process.env.ONCE === "1";
+const SHOW_ALL = process.env.SHOW_ALL === "1";
 const INTERVAL = Math.max(1, parseInt(process.env.INTERVAL || "2", 10)) * 1000;
 const GROUP_BY = process.env.GROUP_BY || "from";
+
+function workerIsAlive(name) {
+  try {
+    execSync("pgrep -f " + JSON.stringify(`worker.mjs ${name}( |$)`), {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const pad = (s, w, right = false) => {
   s = String(s);
@@ -106,6 +123,7 @@ function collect() {
       });
     }
   }
+  if (!SHOW_ALL) return recs.filter(r => workerIsAlive(r.name));
   return recs;
 }
 
@@ -166,7 +184,10 @@ function render() {
   let s = "";
   if (!ONCE) s += "\x1b[H\x1b[2J";
   s += "\x1b[1mAgent Bus \u2014 prompt clarity\x1b[0m  (" + RUN_DIR + ")\n";
-  s += new Date().toLocaleTimeString() + "   " + recs.length + " task(s)   group by " + GROUP_BY + "   refresh " + (INTERVAL / 1000) + "s   Ctrl-C to stop\n";
+  const mode = SHOW_ALL ? "all workers" : "active workers only";
+  s += new Date().toLocaleTimeString() + "   " + recs.length + " task(s) — " + mode;
+  if (!SHOW_ALL) s += "  (use --all for history)";
+  s += "   group by " + GROUP_BY + "   refresh " + (INTERVAL / 1000) + "s   Ctrl-C to stop\n";
   s += "CLARITY=judge 1-5 (higher=clearer)  INTERP=interpretation-overhead  EXPLORE=avg context tool-calls  TTFT=time-to-first-token  HEDGE%=tasks with hedging  ERR%=error/empty/timeout\n\n";
   s += "\x1b[1m" + head + "\x1b[0m\n" + rule + "\n";
   if (!rows.length) s += "  (no tasks yet \u2014 launch a worker + send it a task)\n";

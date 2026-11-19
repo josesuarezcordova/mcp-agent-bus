@@ -10,7 +10,8 @@
 # plus a TOTAL row across all workers. It refreshes in place until Ctrl-C.
 #
 # Usage:
-#   ./docs/watch-usage.sh                 # live dashboard (refresh every 2s)
+#   ./docs/watch-usage.sh                 # live dashboard — active workers only (default)
+#   ./docs/watch-usage.sh --all           # include stopped workers (lifetime stats from .usage.jsonl)
 #   ./docs/watch-usage.sh --once          # print one snapshot and exit
 #   ./docs/watch-usage.sh --interval 5    # refresh every 5s
 #   AGENT_BUS_DIR=/path/.bus ./docs/watch-usage.sh
@@ -23,29 +24,44 @@ set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AGENT_BUS_HOME="${AGENT_BUS_HOME:-$(cd "$HERE/.." && pwd)}"
-# MCP_AGENT_BUS_DIR (open-source) or AGENT_BUS_DIR (Therapie agent-bus) — same mailbox.
 BUS_ROOT="${MCP_AGENT_BUS_DIR:-${AGENT_BUS_DIR:-$AGENT_BUS_HOME/bus}}"
 RUN_DIR="${AGENT_BUS_RUN_DIR:-${MCP_AGENT_BUS_RUN_DIR:-$BUS_ROOT/run}}"
 
 ONCE=0
 INTERVAL=2
+SHOW_ALL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --once) ONCE=1 ;;
+    --all) SHOW_ALL=1 ;;
     --interval) shift; INTERVAL="${1:-2}" ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,28p' "$0"; exit 0 ;;
   esac
   shift
 done
 
 mkdir -p "$RUN_DIR"
 
-RUN_DIR="$RUN_DIR" ONCE="$ONCE" INTERVAL="$INTERVAL" exec node -e '
+RUN_DIR="$RUN_DIR" ONCE="$ONCE" INTERVAL="$INTERVAL" SHOW_ALL="$SHOW_ALL" exec node -e '
+const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const RUN_DIR = process.env.RUN_DIR;
 const ONCE = process.env.ONCE === "1";
+const SHOW_ALL = process.env.SHOW_ALL === "1";
 const INTERVAL = Math.max(1, parseInt(process.env.INTERVAL || "2", 10)) * 1000;
+
+function workerIsAlive(name) {
+  try {
+    execSync("pgrep -f " + JSON.stringify(`worker.mjs ${name}( |$)`), {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const fmt = n => (n || 0).toLocaleString("en-US");
 const pad = (s, w, right = false) => {
@@ -83,7 +99,11 @@ function collect() {
       if (e.ts && (!r.last || Date.parse(e.ts) > Date.parse(r.last))) r.last = e.ts;
     }
   }
-  return Object.values(rows);
+  let list = Object.values(rows);
+  if (!SHOW_ALL) {
+    list = list.filter(r => workerIsAlive(r.name));
+  }
+  return list;
 }
 
 function render() {
@@ -110,10 +130,17 @@ function render() {
 
   let s = "";
   if (!ONCE) s += "\x1b[H\x1b[2J"; // home + clear
+  const mode = SHOW_ALL ? "all workers (incl. stopped)" : "active workers only";
   s += "\x1b[1mAgent Bus — live token usage\x1b[0m  (" + RUN_DIR + ")\n";
-  s += new Date().toLocaleTimeString() + "   " + rows.length + " worker(s)   refresh " + (INTERVAL / 1000) + "s   Ctrl-C to stop\n\n";
+  s += new Date().toLocaleTimeString() + "   " + rows.length + " worker(s) — " + mode;
+  if (!SHOW_ALL) s += "  (use --all for lifetime)";
+  s += "   refresh " + (INTERVAL / 1000) + "s   Ctrl-C to stop\n\n";
   s += "\x1b[1m" + head + "\x1b[0m\n" + rule + "\n";
-  if (!rows.length) s += "  (no usage yet — launch a worker and give it a task)\n";
+  if (!rows.length) {
+    s += SHOW_ALL
+      ? "  (no usage yet — launch a worker and give it a task)\n"
+      : "  (no active workers — start busworker or pass --all for history)\n";
+  }
   for (const r of rows) s += line(r) + "\n";
   s += rule + "\n";
   s += "\x1b[1m" + line({ ...tot, name: "TOTAL" }) + "\x1b[0m\n";
